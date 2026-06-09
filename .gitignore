@@ -1,0 +1,64 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# ---- Environment / secrets ----
+.env
+.env.*
+*.local
+secrets.json
+*.key
+*.pem
+
+# ---- Jupyter ----
+.ipynb_checkpoints/
+
+# ---- RAG / ML artifacts ----
+*.ckpt
+*.pt
+*.pth
+*.bin
+*.gguf
+*.faiss
+*.index
+data/
+datasets/
+embeddings/
+vectorstore/
+chroma/
+.chroma/
+models/
+*.sqlite
+*.db
+
+# ---- Logs & caches ----
+*.log
+logs/
+.cache/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ---- IDE / Editor ----
+.vscode/
+.idea/
+*.swp
+
+# ---- OS ----
+.DS_Store
+Thumbs.db
+desktop.ini
