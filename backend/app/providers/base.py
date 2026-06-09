@@ -1,0 +1,23 @@
+"""Provider abstraction so the LLM / embedding backend is swappable.
+
+OpenAI is the first implementation; any provider can be added by
+implementing these interfaces and wiring it via config.
+"""
+from abc import ABC, abstractmethod
+from collections.abc import AsyncIterator
+
+
+class EmbeddingProvider(ABC):
+    @abstractmethod
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        """Return one dense embedding vector per input text."""
+
+    @abstractmethod
+    def embed_query(self, text: str) -> list[float]:
+        """Return the dense embedding vector for a query string."""
+
+
+class LLMProvider(ABC):
+    @abstractmethod
+    async def stream(self, prompt: str, context: list[str]) -> AsyncIterator[str]:
+        """Stream a grounded answer given a prompt and retrieved context chunks."""

@@ -1,0 +1,44 @@
+# ---- Web / API ----
+fastapi
+uvicorn[standard]
+python-multipart            # file uploads
+pydantic
+pydantic-settings
+
+# ---- Database / migrations ----
+sqlalchemy
+alembic
+psycopg[binary]             # Postgres driver
+
+# ---- Async tasks ----
+celery
+redis
+
+# ---- Vector store ----
+qdrant-client
+
+# ---- RAG / LLM (LangChain ecosystem) ----
+langchain
+langchain-openai
+langchain-community
+openai
+
+# ---- Auth ----
+python-jose[cryptography]   # JWT
+passlib[bcrypt]             # password hashing
+
+# ---- Object storage (S3 / MinIO) ----
+boto3
+
+# ---- Document extraction ----
+unstructured                # multi-format extraction
+pdfplumber                  # PDF text layer
+python-docx                 # DOCX
+openpyxl                    # XLSX
+pytesseract                 # OCR (requires Tesseract binary)
+pillow                      # image handling
+trafilatura                 # website clean-text extraction
+httpx                       # http client
+
+# ---- Utils ----
+tenacity                    # retries
