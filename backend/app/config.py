@@ -1,11 +1,16 @@
 """Application configuration, loaded from environment / .env."""
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# .env lives in backend/ (config.py is at backend/app/config.py).
+# Anchor to the backend dir so it loads no matter the working directory.
+_BACKEND_DIR = Path(__file__).resolve().parents[1]
+
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=_BACKEND_DIR / ".env", extra="ignore")
 
     # App
     app_env: str = "development"

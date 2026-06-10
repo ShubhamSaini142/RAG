@@ -1,0 +1,113 @@
+# Infrastructure for the RAG backend: Postgres + Qdrant + Redis + MinIO.
+# Compose auto-loads variables from the sibling .env file (backend/.env).
+#
+#   cd backend
+#   docker compose up -d        # start all services
+#   docker compose ps           # check health
+#   docker compose logs -f      # tail logs
+#   docker compose down         # stop (keeps volumes/data)
+#   docker compose down -v      # stop AND delete data volumes
+#
+# Ports bind to 127.0.0.1 only — these are dev services with weak default
+# creds; they are not exposed to your LAN. Image tags are pinned for
+# reproducibility (see notes per service).
+
+name: rag
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: rag-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-rag}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rag}
+      POSTGRES_DB: ${POSTGRES_DB:-rag}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      # pg_isready ships in the alpine image. $$ -> $ so the container shell
+      # reads its own env (must pass -U, else it tries role "root").
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s   # entrypoint bootstraps on a socket first; avoids flapping
+
+  qdrant:
+    image: qdrant/qdrant:v1.18.2
+    container_name: rag-qdrant
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6333:6333"   # REST + dashboard (http://localhost:6333/dashboard)
+      - "127.0.0.1:6334:6334"   # gRPC
+    volumes:
+      - qdrant_data:/qdrant/storage
+    # No in-container healthcheck: the qdrant image is distroless (no shell/curl),
+    # so any CMD test would falsely report unhealthy. Verify from the host:
+    #   curl http://localhost:6333/readyz
+    # The app's /health endpoint also checks Qdrant connectivity.
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: rag-redis
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]   # redis-cli ships in the alpine image
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  minio:
+    # MinIO repo was archived 2026-04; this is a late stable release. If the
+    # pull fails, pick a current tag from hub.docker.com/r/minio/minio/tags.
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    container_name: rag-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:-minioadmin}   # must be >= 8 chars
+    ports:
+      - "127.0.0.1:9000:9000"   # S3 API
+      - "127.0.0.1:9001:9001"   # web console (http://localhost:9001)
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      # mc is bundled in the server image with a preconfigured "local" alias;
+      # `mc ready local` is MinIO's official healthcheck (curl was removed).
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # One-shot: create the documents bucket once MinIO is healthy.
+  createbuckets:
+    image: minio/mc:RELEASE.2025-08-13T08-35-41Z
+    container_name: rag-createbuckets
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      until mc alias set local http://minio:9000 ${S3_ACCESS_KEY:-minioadmin} ${S3_SECRET_KEY:-minioadmin}; do
+        echo 'waiting for minio...'; sleep 2;
+      done;
+      mc mb --ignore-existing local/${S3_BUCKET:-rag-documents};
+      echo 'bucket ready';
+      exit 0;
+      "
+
+volumes:
+  postgres_data:
+  qdrant_data:
+  redis_data:
+  minio_data:

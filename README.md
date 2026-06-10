@@ -22,8 +22,10 @@ See [PLAN.md](PLAN.md) for the full architecture and roadmap.
 RAG/
 ├── README.md
 ├── PLAN.md                       # architecture + roadmap (living doc)
-├── .env.example                  # copy to .env and fill in
+├── CHECKLIST.md                  # step-by-step build checklist
 └── backend/
+    ├── docker-compose.yml        # Postgres + Qdrant + Redis + MinIO
+    ├── .env.example              # copy to .env and fill in
     ├── requirements.txt
     ├── alembic/                  # DB migrations (initialised later)
     └── app/
@@ -56,21 +58,24 @@ RAG/
 ## Getting Started (backend)
 
 ```powershell
-# From the RAG/ directory
+# Everything backend lives in backend/ for now.
+cd backend
+copy .env.example .env              # then fill in OPENAI_API_KEY
+
+# 1) Start infrastructure (needs Docker Desktop running)
+docker compose up -d
+docker compose ps                   # postgres/redis/minio -> healthy
+
+# 2) Python deps + run the API
 python -m venv .venv
 .venv\Scripts\activate              # Windows (PowerShell)
 # source .venv/bin/activate         # macOS / Linux
-
-pip install -r backend/requirements.txt
-
-copy .env.example .env              # then fill in OPENAI_API_KEY etc.
-
-# Run the API (needs Postgres + Qdrant running — via docker-compose, added next)
-cd backend
+pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
 
-Health check: open http://localhost:8000/health
+Health check: open http://localhost:8000/health (Postgres + Qdrant should be `ok`).
+Qdrant dashboard: http://localhost:6333/dashboard · MinIO console: http://localhost:9001
 
 ## Status
 

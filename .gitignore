@@ -19,6 +19,7 @@ ENV/
 # ---- Environment / secrets ----
 .env
 .env.*
+!.env.example
 *.local
 secrets.json
 *.key
@@ -35,13 +36,15 @@ secrets.json
 *.gguf
 *.faiss
 *.index
-data/
-datasets/
-embeddings/
-vectorstore/
-chroma/
-.chroma/
-models/
+# NOTE: anchored to repo root so they don't swallow source dirs like
+# backend/app/vectorstore/ and backend/app/models/
+/data/
+/datasets/
+/embeddings/
+/vectorstore/
+/chroma/
+/.chroma/
+/models/
 *.sqlite
 *.db
 

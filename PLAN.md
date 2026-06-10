@@ -156,15 +156,19 @@ All endpoints resolve tenant from JWT and enforce role; all DB access scoped by 
 
 ```
 RAG/
-├── docker-compose.yml          # api, worker, postgres, qdrant, redis, minio
-├── .env.example
+├── README.md
+├── PLAN.md
+├── CHECKLIST.md
 ├── backend/
+│   ├── docker-compose.yml      # postgres, qdrant, redis, minio (+ api/worker later)
+│   ├── .env.example
 │   ├── requirements.txt
 │   ├── alembic/                # migrations
 │   └── app/
 │       ├── main.py             # FastAPI app
 │       ├── config.py
 │       ├── db.py               # session, RLS setup
+│       ├── celery_app.py       # Celery instance
 │       ├── models/             # SQLAlchemy models
 │       ├── api/                # routers (auth, orgs, collections, documents, chat, feedback)
 │       ├── auth/               # JWT, tenant/role deps
@@ -181,7 +185,7 @@ RAG/
 │       └── vectorstore/
 │           ├── base.py         # VectorStore interface
 │           └── qdrant_store.py
-└── frontend/                   # Next.js app
+└── (frontend/ — deferred; not built yet)
 ```
 
 ---
@@ -231,3 +235,5 @@ Explicitly deferred (boundaries left in place): reranking, full conversational m
 - **2026-06-09** — Initial plan drafted. Decisions locked: Python/FastAPI + Next.js, multi-tenant from day 1, container-first, OpenAI behind provider abstraction.
 - **2026-06-09** — Updated: **Qdrant from day 1** (replaces pgvector; Postgres now metadata-only, tenant isolation via Qdrant payload filter, native hybrid search). Orchestration set to **LangChain ecosystem** (loaders, splitters, retrievers, LCEL) instead of LlamaIndex.
 - **2026-06-09** — Dependency management: use **`requirements.txt`** (not `pyproject.toml`).
+- **2026-06-10** — `docker-compose.yml` + `.env.example` moved **into `backend/`** (frontend deferred, so the project is backend-self-contained for now); `config.py` loads `backend/.env`.
+- **2026-06-10** — `docker-compose.yml` written + adversarially verified (web-backed). Pinned image tags (qdrant v1.18.2, redis 7.4-alpine, postgres 16-alpine, dated MinIO/mc releases); `mc ready local` healthcheck for MinIO; Qdrant has no in-container healthcheck (distroless) — checked via host/`/health`; ports bound to 127.0.0.1; added `REDIS_PORT` to env.
