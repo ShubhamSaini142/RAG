@@ -76,8 +76,8 @@ services:
       MINIO_ROOT_USER: ${S3_ACCESS_KEY:-minioadmin}
       MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:-minioadmin}   # must be >= 8 chars
     ports:
-      - "127.0.0.1:9000:9000"   # S3 API
-      - "127.0.0.1:9001:9001"   # web console (http://localhost:9001)
+      - "127.0.0.1:9100:9000"   # S3 API host port changed to avoid local conflict
+      - "127.0.0.1:9101:9001"   # web console (http://localhost:9101)
     volumes:
       - minio_data:/data
     healthcheck:
