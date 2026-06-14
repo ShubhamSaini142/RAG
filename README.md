@@ -5,7 +5,10 @@ A multi-tenant, RAG-based knowledge-base SaaS. Users upload/connect content
 embeds → stores it, then answers natural-language questions grounded in the
 content, **with citations**.
 
-See [PLAN.md](PLAN.md) for the full architecture and roadmap.
+See [PLAN.md](PLAN.md) for the full architecture and roadmap, [docs/CHECKLIST.md](docs/CHECKLIST.md)
+for build progress, and [docs/](docs/) for per-step deep-dives + collaborator setup:
+
+- [docs/step-04-database-schema.md](docs/step-04-database-schema.md) — DB models, migrations & how to apply them
 
 ## Stack
 
@@ -22,7 +25,9 @@ See [PLAN.md](PLAN.md) for the full architecture and roadmap.
 RAG/
 ├── README.md
 ├── PLAN.md                       # architecture + roadmap (living doc)
-├── CHECKLIST.md                  # step-by-step build checklist
+├── docs/                         # per-step deep-dives + collaborator setup
+│   ├── CHECKLIST.md              # step-by-step build checklist
+│   └── step-04-database-schema.md
 └── backend/
     ├── docker-compose.yml        # Postgres + Qdrant + Redis + MinIO
     ├── .env.example              # copy to .env and fill in
