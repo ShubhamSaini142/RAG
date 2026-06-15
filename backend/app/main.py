@@ -2,7 +2,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import health
+from app.api import auth, health, orgs
 
 app = FastAPI(title="RAG Knowledge Base API", version="0.1.0")
 
@@ -15,10 +15,10 @@ app.add_middleware(
 )
 
 app.include_router(health.router)
+app.include_router(auth.router)
+app.include_router(orgs.router)
 
 # Future routers (added in later milestones):
-# app.include_router(auth.router)
-# app.include_router(orgs.router)
 # app.include_router(collections.router)
 # app.include_router(documents.router)
 # app.include_router(chat.router)

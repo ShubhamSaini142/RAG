@@ -4,6 +4,7 @@ uvicorn[standard]
 python-multipart            # file uploads
 pydantic
 pydantic-settings
+email-validator            # EmailStr validation
 
 # ---- Database / migrations ----
 sqlalchemy

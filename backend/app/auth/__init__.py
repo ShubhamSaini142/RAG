@@ -1,9 +1,9 @@
 """Auth & multi-tenancy.
 
-Will hold:
-  - jwt.py        : token create/verify, password hashing
-  - deps.py       : current-user, current-org, role-check FastAPI dependencies
+  - security.py : password hashing (bcrypt) + JWT create/verify
+  - schemas.py  : Pydantic request/response models
+  - deps.py     : current-user, current-context (org+role), role-check deps
 
-All request handlers resolve the tenant (org) from the JWT and scope DB
+All protected handlers resolve the tenant (org) from the JWT and scope DB
 access by org_id.
 """

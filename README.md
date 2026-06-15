@@ -9,6 +9,7 @@ See [PLAN.md](PLAN.md) for the full architecture and roadmap, [docs/CHECKLIST.md
 for build progress, and [docs/](docs/) for per-step deep-dives + collaborator setup:
 
 - [docs/step-04-database-schema.md](docs/step-04-database-schema.md) — DB models, migrations & how to apply them
+- [docs/step-05-auth.md](docs/step-05-auth.md) — auth & multi-tenancy (JWT, roles) + git workflow
 
 ## Stack
 

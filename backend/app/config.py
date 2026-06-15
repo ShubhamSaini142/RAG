@@ -2,7 +2,11 @@
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Secrets that must never be used outside local development.
+_INSECURE_SECRETS = {"change-me", "change-me-to-a-long-random-string"}
 
 # .env lives in backend/ (config.py is at backend/app/config.py).
 # Anchor to the backend dir so it loads no matter the working directory.
@@ -51,6 +55,20 @@ class Settings(BaseSettings):
             f"postgresql+psycopg://{self.postgres_user}:{self.postgres_password}"
             f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
         )
+
+    @model_validator(mode="after")
+    def _require_strong_secret(self) -> "Settings":
+        # Outside local dev, refuse to boot with a default/weak signing secret —
+        # the JWT secret is the only thing preventing token forgery.
+        if self.app_env != "development" and (
+            self.secret_key in _INSECURE_SECRETS or len(self.secret_key) < 32
+        ):
+            raise ValueError(
+                "SECRET_KEY must be a strong random value (>= 32 chars) when "
+                "APP_ENV is not 'development'. Generate one with:\n"
+                '  python -c "import secrets; print(secrets.token_urlsafe(64))"'
+            )
+        return self
 
 
 @lru_cache
