@@ -31,10 +31,10 @@ class FakeEmbedder:
         norm = math.sqrt(sum(x * x for x in v)) or 1.0
         return [x / norm for x in v]
 
-    def embed_documents(self, texts):
+    async def embed_documents(self, texts):
         return [self._vec(t) for t in texts]
 
-    def embed_query(self, text):
+    async def embed_query(self, text):
         return self._vec(text)
 
 

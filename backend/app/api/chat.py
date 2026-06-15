@@ -106,18 +106,19 @@ def _validate_collection(collection_id: uuid.UUID, org_id: uuid.UUID) -> None:
         }
     },
 )
-def chat(
+async def chat(
     body: ChatRequest, ctx: CurrentContext = Depends(get_current_context)
 ) -> StreamingResponse:
     org_id = ctx.org_id
     user_id = ctx.user.id
 
     # Defense-in-depth: a collection filter must belong to the caller's org.
+    # (Sync DB call kept off the event loop.)
     if body.collection_id:
-        _validate_collection(body.collection_id, org_id)
+        await run_in_threadpool(_validate_collection, body.collection_id, org_id)
 
-    # Retrieval (sync embeddings) runs in the threadpool before streaming begins.
-    hits = retrieve(org_id, body.question, top_k=body.top_k, collection_id=body.collection_id)
+    # Async retrieval: awaits the embedding, Qdrant search runs in a threadpool.
+    hits = await retrieve(org_id, body.question, top_k=body.top_k, collection_id=body.collection_id)
     citations = [
         {
             "n": i + 1,

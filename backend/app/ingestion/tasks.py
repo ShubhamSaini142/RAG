@@ -8,6 +8,7 @@ attempt and uses deterministic point ids, so retries overwrite rather than
 duplicate. run_ingestion() is a plain function so it can be called synchronously
 in tests; the Celery task is a thin wrapper.
 """
+import asyncio
 import uuid
 
 from app import providers, storage
@@ -55,7 +56,8 @@ def run_ingestion(document_id: str) -> None:
                 return
 
             embedder = providers.get_embedding_provider()
-            vectors = embedder.embed_documents([p["content"] for p in pieces])
+            # Celery tasks are sync; drive the async embedder in a fresh loop.
+            vectors = asyncio.run(embedder.embed_documents([p["content"] for p in pieces]))
             if len(vectors) != len(pieces):
                 raise RuntimeError(
                     f"embedding count {len(vectors)} != chunk count {len(pieces)}"

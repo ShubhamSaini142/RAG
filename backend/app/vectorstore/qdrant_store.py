@@ -3,11 +3,51 @@
 Tenant isolation: every search applies a payload filter on org_id. One shared
 collection holds all tenants' vectors, separated by the org_id payload field
 (indexed for fast filtering).
+
+Sync methods (ensure_collection/upsert/search/delete) are used by the Celery
+ingestion worker. `asearch` uses an AsyncQdrantClient for the request-serving
+retrieval path so the event loop is never blocked.
 """
-from qdrant_client import QdrantClient, models
+from qdrant_client import AsyncQdrantClient, QdrantClient, models
 
 from app.config import settings
 from app.vectorstore.base import Chunk, SearchHit, VectorStore
+
+# Reused async client (lazily created on first use, within the serving loop).
+_async_client: AsyncQdrantClient | None = None
+
+
+def _get_async_client() -> AsyncQdrantClient:
+    global _async_client
+    if _async_client is None:
+        _async_client = AsyncQdrantClient(
+            url=settings.qdrant_url, api_key=settings.qdrant_api_key or None
+        )
+    return _async_client
+
+
+def _build_filter(org_id: str, collection_id: str | None) -> models.Filter:
+    must = [models.FieldCondition(key="org_id", match=models.MatchValue(value=org_id))]
+    if collection_id:
+        must.append(
+            models.FieldCondition(
+                key="collection_id", match=models.MatchValue(value=collection_id)
+            )
+        )
+    return models.Filter(must=must)
+
+
+def _hits_from(result) -> list[SearchHit]:
+    return [
+        SearchHit(
+            chunk_id=str(p.id),
+            document_id=str((p.payload or {}).get("document_id")),
+            content=(p.payload or {}).get("content", ""),
+            score=p.score,
+            metadata=p.payload or {},
+        )
+        for p in result.points
+    ]
 
 
 class QdrantStore(VectorStore):
@@ -33,7 +73,6 @@ class QdrantStore(VectorStore):
                 size=settings.embedding_dim, distance=models.Distance.COSINE
             ),
         )
-        # Index the payload fields we filter on (tenant isolation + scoping).
         for field in ("org_id", "document_id", "collection_id"):
             self.client.create_payload_index(
                 collection_name=self.collection,
@@ -59,37 +98,21 @@ class QdrantStore(VectorStore):
         ]
         self.client.upsert(collection_name=self.collection, points=points)
 
-    def search(
+    async def asearch(
         self,
         org_id: str,
         query_vector: list[float],
         top_k: int = 5,
         collection_id: str | None = None,
     ) -> list[SearchHit]:
-        must = [models.FieldCondition(key="org_id", match=models.MatchValue(value=org_id))]
-        if collection_id:
-            must.append(
-                models.FieldCondition(
-                    key="collection_id", match=models.MatchValue(value=collection_id)
-                )
-            )
-        result = self.client.query_points(
+        result = await _get_async_client().query_points(
             collection_name=self.collection,
             query=query_vector,
-            query_filter=models.Filter(must=must),
+            query_filter=_build_filter(org_id, collection_id),
             limit=top_k,
             with_payload=True,
         )
-        return [
-            SearchHit(
-                chunk_id=str(p.id),
-                document_id=str((p.payload or {}).get("document_id")),
-                content=(p.payload or {}).get("content", ""),
-                score=p.score,
-                metadata=p.payload or {},
-            )
-            for p in result.points
-        ]
+        return _hits_from(result)
 
     def delete_document(self, org_id: str, document_id: str) -> None:
         self.client.delete(

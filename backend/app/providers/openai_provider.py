@@ -14,11 +14,11 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
             api_key=settings.openai_api_key,
         )
 
-    def embed_documents(self, texts: list[str]) -> list[list[float]]:
-        return self._emb.embed_documents(list(texts))
+    async def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        return await self._emb.aembed_documents(list(texts))
 
-    def embed_query(self, text: str) -> list[float]:
-        return self._emb.embed_query(text)
+    async def embed_query(self, text: str) -> list[float]:
+        return await self._emb.aembed_query(text)
 
 
 class OpenAILLMProvider(LLMProvider):
@@ -30,6 +30,8 @@ class OpenAILLMProvider(LLMProvider):
         )
 
     async def astream(self, system: str, user: str) -> AsyncIterator[str]:
+        # `.astream()` (not `.stream()`) drives langchain-openai's AsyncOpenAI
+        # client — fully async, no threadpool. Same for embeddings' `aembed_*`.
         async for chunk in self._llm.astream([("system", system), ("human", user)]):
             text = chunk.content
             if text:

@@ -34,7 +34,7 @@ class VectorStore(ABC):
         """Insert/update chunk vectors with payload."""
 
     @abstractmethod
-    def search(
+    async def asearch(
         self, org_id: str, query_vector: list[float], top_k: int = 5,
         collection_id: str | None = None,
     ) -> list[SearchHit]:
