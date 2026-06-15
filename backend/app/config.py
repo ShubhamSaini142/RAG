@@ -25,19 +25,19 @@ class Settings(BaseSettings):
     postgres_user: str = "rag"
     postgres_password: str = "rag"
     postgres_db: str = "rag"
-    postgres_host: str = "localhost"
+    postgres_host: str = "127.0.0.1"
     postgres_port: int = 5432
 
     # Redis
-    redis_url: str = "redis://localhost:6379/0"
+    redis_url: str = "redis://127.0.0.1:6379/0"
 
     # Qdrant
-    qdrant_url: str = "http://localhost:6333"
+    qdrant_url: str = "http://127.0.0.1:6333"
     qdrant_api_key: str = ""
     qdrant_collection: str = "kb_chunks"
 
     # Object storage
-    s3_endpoint_url: str = "http://localhost:9000"
+    s3_endpoint_url: str = "http://127.0.0.1:9000"
     s3_access_key: str = "minioadmin"
     s3_secret_key: str = "minioadmin"
     s3_bucket: str = "rag-documents"

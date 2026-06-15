@@ -67,12 +67,19 @@ See [PLAN.md](../PLAN.md) for the full architecture and [README.md](../README.md
 
 ## Step 6 — First vertical slice (ingest → ask)  ◀ YOU ARE HERE
 
-- [ ] Implement provider impls (`OpenAIEmbeddingProvider`, `OpenAILLMProvider`)
-- [ ] Implement `QdrantStore` (ensure_collection, upsert, search, delete)
-- [ ] Upload a single **.txt** file → store to MinIO → create document row
-- [ ] Celery task: extract → chunk → embed → upsert to Qdrant → mark ready
-- [ ] `POST /chat`: retrieve (tenant-scoped) → grounded prompt → **stream** answer
-- [ ] Answer includes **citations**; "I don't know" when no relevant context
+> 📄 Full explanation + collaborator setup (worker, OpenAI key) + git workflow: [step-06-rag-slice.md](step-06-rag-slice.md)
+
+- [X] Provider impls (`OpenAIEmbeddingProvider`, `OpenAILLMProvider`) + factories
+- [X] `QdrantStore` (ensure_collection, upsert, org-scoped search, delete)
+- [X] Object storage helper (`app/storage.py`); upload `.txt`/`.md` → MinIO → document row
+- [X] Celery task: extract → chunk → embed → upsert Qdrant + Postgres chunk rows → mark ready
+- [X] `POST /chat`: retrieve (org-scoped) → grounded prompt → **stream** (SSE) answer
+- [X] Answer includes **citations**; "don't know" when no context (isolation verified)
+- [X] End-to-end test w/ fake providers (`tests/test_rag.py`) — no OpenAI key needed
+- [X] Adversarial-review fixes applied (idempotent ingest, threadpool persistence, size cap, IDOR, etc.)
+- [X] Polished Swagger/OpenAPI docs at `/docs` (tags, summaries, persistent Authorize)
+- [X] Fixed first-request 130s hang (use `127.0.0.1`, not `localhost`)
+- [ ] Live OpenAI run (add `OPENAI_API_KEY` to `.env`) + run a Celery worker
 
 ---
 

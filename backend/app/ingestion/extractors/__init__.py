@@ -1,13 +1,19 @@
 """Per-source-type text extractors.
 
-One extractor module per source_type (added in the ingestion milestone):
-  pdf.py      - text layer + OCR fallback for scanned pages
-  docx.py     - headings/tables preserved
-  excel.py    - per-sheet, table-aware (xlsx/csv)
-  text.py     - txt / markdown, direct
-  image.py    - OCR (+ optional vision caption later)
-  website.py  - fetch + clean-text (single URL now, crawl later)
-
-Each exposes: extract(source) -> list[dict]  (text + source metadata)
-A registry maps source_type -> extractor.
+A registry maps source_type -> extractor function. Each extractor takes raw
+bytes and returns a list of {text, metadata} segments. More types
+(pdf, docx, excel, image, website) are added in the widen-coverage phase.
 """
+from app.ingestion.extractors import text as _text
+
+_REGISTRY = {
+    "txt": _text.extract,
+    "md": _text.extract,
+}
+
+
+def extract(source_type: str, raw: bytes) -> list[dict]:
+    fn = _REGISTRY.get(source_type)
+    if fn is None:
+        raise ValueError(f"No extractor registered for source_type '{source_type}'")
+    return fn(raw)

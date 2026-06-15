@@ -10,6 +10,7 @@ for build progress, and [docs/](docs/) for per-step deep-dives + collaborator se
 
 - [docs/step-04-database-schema.md](docs/step-04-database-schema.md) — DB models, migrations & how to apply them
 - [docs/step-05-auth.md](docs/step-05-auth.md) — auth & multi-tenancy (JWT, roles) + git workflow
+- [docs/step-06-rag-slice.md](docs/step-06-rag-slice.md) — the RAG slice (ingest → ask), worker setup, Swagger
 
 ## Stack
 

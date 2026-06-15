@@ -7,7 +7,7 @@ from app.db import engine
 router = APIRouter(tags=["health"])
 
 
-@router.get("/health")
+@router.get("/health", summary="Health check (Postgres + Qdrant)")
 def health() -> dict:
     checks: dict[str, str] = {}
 

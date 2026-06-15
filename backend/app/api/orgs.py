@@ -19,7 +19,7 @@ router = APIRouter(prefix="/orgs", tags=["orgs"])
 _ROLE_RANK = {Role.viewer.value: 0, Role.editor.value: 1, Role.admin.value: 2, Role.owner.value: 3}
 
 
-@router.get("", response_model=list[OrgResponse])
+@router.get("", response_model=list[OrgResponse], summary="List your organizations")
 def list_orgs(
     user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ) -> list[OrgResponse]:
@@ -32,7 +32,12 @@ def list_orgs(
     return [OrgResponse(id=o.id, name=o.name, plan=o.plan, role=m.role) for o, m in rows]
 
 
-@router.post("", response_model=OrgResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=OrgResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create an organization",
+)
 def create_org(
     body: CreateOrgRequest,
     user: User = Depends(get_current_user),
@@ -46,7 +51,12 @@ def create_org(
     return OrgResponse(id=org.id, name=org.name, plan=org.plan, role=Role.owner.value)
 
 
-@router.post("/invite", response_model=OrgResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/invite",
+    response_model=OrgResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Invite a user to your active org",
+)
 def invite_member(
     body: InviteRequest,
     ctx: CurrentContext = Depends(require_role(Role.owner.value, Role.admin.value)),

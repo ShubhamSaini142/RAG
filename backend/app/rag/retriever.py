@@ -1,12 +1,23 @@
-"""Retrieval: hybrid (dense + sparse) search over Qdrant, tenant-scoped.
+"""Retrieval: embed the query and fetch top-k chunks from Qdrant, tenant-scoped."""
+import uuid
 
-NOTE: scaffold stub — implemented in the RAG-query milestone.
-"""
+from app import providers
 from app.vectorstore.base import SearchHit
+from app.vectorstore.qdrant_store import QdrantStore
 
 
 def retrieve(
-    org_id: str, query: str, top_k: int = 5, collection_id: str | None = None
+    org_id: uuid.UUID,
+    query: str,
+    top_k: int = 5,
+    collection_id: uuid.UUID | None = None,
 ) -> list[SearchHit]:
-    """Embed the query and retrieve top-k chunks for the tenant."""
-    raise NotImplementedError("Implemented in the RAG-query milestone.")
+    embedder = providers.get_embedding_provider()
+    query_vector = embedder.embed_query(query)
+    store = QdrantStore()
+    return store.search(
+        org_id=str(org_id),
+        query_vector=query_vector,
+        top_k=top_k,
+        collection_id=str(collection_id) if collection_id else None,
+    )

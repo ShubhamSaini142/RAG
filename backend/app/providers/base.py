@@ -1,7 +1,7 @@
 """Provider abstraction so the LLM / embedding backend is swappable.
 
-OpenAI is the first implementation; any provider can be added by
-implementing these interfaces and wiring it via config.
+OpenAI is the first implementation; any provider can be added by implementing
+these interfaces and wiring it via the factories in app.providers.
 """
 from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator
@@ -19,5 +19,5 @@ class EmbeddingProvider(ABC):
 
 class LLMProvider(ABC):
     @abstractmethod
-    async def stream(self, prompt: str, context: list[str]) -> AsyncIterator[str]:
-        """Stream a grounded answer given a prompt and retrieved context chunks."""
+    def astream(self, system: str, user: str) -> AsyncIterator[str]:
+        """Yield answer text deltas given a system prompt and a user message."""

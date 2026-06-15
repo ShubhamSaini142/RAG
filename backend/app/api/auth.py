@@ -26,7 +26,12 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 _DUMMY_HASH = hash_password(secrets.token_urlsafe(32))
 
 
-@router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/register",
+    response_model=TokenResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Register a new user + organization",
+)
 def register(body: RegisterRequest, db: Session = Depends(get_db)) -> TokenResponse:
     if db.query(User).filter(User.email == body.email).first():
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
@@ -52,7 +57,7 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)) -> TokenRespo
     return TokenResponse(access_token=token, org_id=org.id)
 
 
-@router.post("/login", response_model=TokenResponse)
+@router.post("/login", response_model=TokenResponse, summary="Log in and get an access token")
 def login(body: LoginRequest, db: Session = Depends(get_db)) -> TokenResponse:
     user = db.query(User).filter(User.email == body.email).first()
     # Always run bcrypt (against a dummy hash if no user) so response time
@@ -74,7 +79,7 @@ def login(body: LoginRequest, db: Session = Depends(get_db)) -> TokenResponse:
     return TokenResponse(access_token=token, org_id=org_id)
 
 
-@router.get("/me", response_model=MeResponse)
+@router.get("/me", response_model=MeResponse, summary="Current user and organizations")
 def me(user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> MeResponse:
     rows = (
         db.query(Organization, Membership)
