@@ -6,13 +6,13 @@ from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFil
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 
-from app import storage
+from app import providers, storage
 from app.auth.deps import CurrentContext, get_current_context
 from app.db import get_db
 from app.ingestion.tasks import process_document
 from app.models import Document
 from app.models.enums import DocumentStatus, SourceType
-from app.vectorstore.qdrant_store import QdrantStore
+from app.vectorstore.qdrant_store import QdrantStore, org_collection
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -46,6 +46,13 @@ def upload_document(
     ctx: CurrentContext = Depends(get_current_context),
     db: Session = Depends(get_db),
 ) -> DocumentResponse:
+    # Require-key: no embedding provider configured -> can't index, so reject early.
+    if not providers.has_provider(db, ctx.org_id, "embedding"):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Configure an embedding provider in Settings before uploading.",
+        )
+
     name = file.filename or "upload.txt"
     ext = name.rsplit(".", 1)[-1].lower() if "." in name else "txt"
     source_type = _EXT_TO_SOURCE.get(ext)
@@ -131,7 +138,7 @@ def delete_document(
     doc = _get_owned(document_id, ctx, db)
     # Best-effort cleanup of external stores; DB cascade removes chunk rows.
     try:
-        QdrantStore().delete_document(str(ctx.org_id), str(doc.id))
+        QdrantStore(org_collection(ctx.org_id)).delete_document(str(ctx.org_id), str(doc.id))
     except Exception:  # noqa: BLE001
         pass
     if doc.storage_key:

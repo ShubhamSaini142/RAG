@@ -1,20 +1,25 @@
-"""Qdrant implementation of VectorStore.
+"""Qdrant implementation of VectorStore — one collection per organization.
 
-Tenant isolation: every search applies a payload filter on org_id. One shared
-collection holds all tenants' vectors, separated by the org_id payload field
-(indexed for fast filtering).
+Because each org brings its own embedding model (different vector dimensions),
+a single shared collection won't work. Each org gets `org_<id>` sized to its
+embedding dim. The org_id payload filter is kept as defense-in-depth.
 
-Sync methods (ensure_collection/upsert/search/delete) are used by the Celery
-ingestion worker. `asearch` uses an AsyncQdrantClient for the request-serving
-retrieval path so the event loop is never blocked.
+Sync methods are used by the Celery ingestion worker; `asearch` uses an
+AsyncQdrantClient for the request-serving retrieval path.
 """
+import uuid
+
 from qdrant_client import AsyncQdrantClient, QdrantClient, models
 
 from app.config import settings
 from app.vectorstore.base import Chunk, SearchHit, VectorStore
 
-# Reused async client (lazily created on first use, within the serving loop).
 _async_client: AsyncQdrantClient | None = None
+
+
+def org_collection(org_id: uuid.UUID | str) -> str:
+    """Deterministic per-tenant collection name."""
+    return f"org_{str(org_id).replace('-', '')}"
 
 
 def _get_async_client() -> AsyncQdrantClient:
@@ -51,27 +56,33 @@ def _hits_from(result) -> list[SearchHit]:
 
 
 class QdrantStore(VectorStore):
-    def __init__(self) -> None:
-        self.collection = settings.qdrant_collection
+    def __init__(self, collection: str) -> None:
+        self.collection = collection
         self._client: QdrantClient | None = None
 
     @property
     def client(self) -> QdrantClient:
         if self._client is None:
             self._client = QdrantClient(
-                url=settings.qdrant_url,
-                api_key=settings.qdrant_api_key or None,
+                url=settings.qdrant_url, api_key=settings.qdrant_api_key or None
             )
         return self._client
 
-    def ensure_collection(self) -> None:
+    def ensure_collection(self, dim: int) -> None:
         if self.client.collection_exists(self.collection):
+            # Fail loudly on a dimension mismatch rather than upserting wrong-sized
+            # vectors into an existing collection.
+            existing_dim = self.client.get_collection(self.collection).config.params.vectors.size
+            if existing_dim != dim:
+                raise ValueError(
+                    f"Qdrant collection '{self.collection}' has dim {existing_dim}, "
+                    f"but the configured embedding model produces dim {dim}. "
+                    "Delete the org's documents to rebuild the index."
+                )
             return
         self.client.create_collection(
             collection_name=self.collection,
-            vectors_config=models.VectorParams(
-                size=settings.embedding_dim, distance=models.Distance.COSINE
-            ),
+            vectors_config=models.VectorParams(size=dim, distance=models.Distance.COSINE),
         )
         for field in ("org_id", "document_id", "collection_id"):
             self.client.create_payload_index(
@@ -105,6 +116,9 @@ class QdrantStore(VectorStore):
         top_k: int = 5,
         collection_id: str | None = None,
     ) -> list[SearchHit]:
+        # The collection may not exist yet (org configured but nothing ingested).
+        if not await _get_async_client().collection_exists(self.collection):
+            return []
         result = await _get_async_client().query_points(
             collection_name=self.collection,
             query=query_vector,
@@ -115,6 +129,8 @@ class QdrantStore(VectorStore):
         return _hits_from(result)
 
     def delete_document(self, org_id: str, document_id: str) -> None:
+        if not self.client.collection_exists(self.collection):
+            return
         self.client.delete(
             collection_name=self.collection,
             points_selector=models.Filter(
@@ -126,3 +142,7 @@ class QdrantStore(VectorStore):
                 ]
             ),
         )
+
+    def delete_collection(self) -> None:
+        if self.client.collection_exists(self.collection):
+            self.client.delete_collection(self.collection)

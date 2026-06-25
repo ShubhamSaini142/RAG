@@ -13,12 +13,15 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
+from app import providers
 from app.auth.deps import CurrentContext, get_current_context
 from app.db import SessionLocal
 from app.models import Collection, Conversation, Message
 from app.models.enums import MessageRole
+from app.providers import ProviderNotConfigured
 from app.rag.pipeline import stream_answer
 from app.rag.retriever import retrieve
+from app.vectorstore.qdrant_store import org_collection
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -94,6 +97,17 @@ def _validate_collection(collection_id: uuid.UUID, org_id: uuid.UUID) -> None:
         db.close()
 
 
+def _resolve_providers(org_id: uuid.UUID):
+    """Load this org's embedding + LLM providers (BYOK). Raises ProviderNotConfigured."""
+    db = SessionLocal()
+    try:
+        embedder = providers.get_embedding_provider(org_id, db)
+        llm = providers.get_llm_provider(org_id, db)
+        return embedder, llm
+    finally:
+        db.close()
+
+
 @router.post(
     "",
     summary="Ask a question (streamed, cited answer)",
@@ -112,13 +126,27 @@ async def chat(
     org_id = ctx.org_id
     user_id = ctx.user.id
 
+    # Resolve the org's BYOK providers (require-key). 409 if not configured yet.
+    try:
+        embedder, llm = await run_in_threadpool(_resolve_providers, org_id)
+    except ProviderNotConfigured as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=f"{exc}. Configure it in Settings."
+        )
+
     # Defense-in-depth: a collection filter must belong to the caller's org.
-    # (Sync DB call kept off the event loop.)
     if body.collection_id:
         await run_in_threadpool(_validate_collection, body.collection_id, org_id)
 
-    # Async retrieval: awaits the embedding, Qdrant search runs in a threadpool.
-    hits = await retrieve(org_id, body.question, top_k=body.top_k, collection_id=body.collection_id)
+    # Async retrieval over the org's own Qdrant collection.
+    hits = await retrieve(
+        org_id,
+        body.question,
+        embedder,
+        org_collection(org_id),
+        top_k=body.top_k,
+        collection_id=body.collection_id,
+    )
     citations = [
         {
             "n": i + 1,
@@ -139,7 +167,7 @@ async def chat(
         parts: list[str] = []
         persisted = False
         try:
-            async for delta in stream_answer(body.question, hits):
+            async for delta in stream_answer(body.question, hits, llm):
                 parts.append(delta)
                 yield _sse("token", {"text": delta})
         finally:

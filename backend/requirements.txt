@@ -22,7 +22,12 @@ qdrant-client
 langchain
 langchain-openai
 langchain-community
+langchain-anthropic         # BYOK: Claude LLM provider
+langchain-google-genai      # BYOK: Gemini LLM + embeddings provider
 openai
+
+# ---- Secrets ----
+cryptography                # Fernet encryption for per-org provider API keys
 
 # ---- Auth ----
 python-jose[cryptography]   # JWT

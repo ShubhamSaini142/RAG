@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     app_env: str = "development"
     secret_key: str = "change-me"
     access_token_expire_minutes: int = 60
+    encryption_key: str = ""  # Fernet key for encrypting per-org provider API keys
 
     # Postgres
     postgres_user: str = "rag"
@@ -58,16 +59,29 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _require_strong_secret(self) -> "Settings":
-        # Outside local dev, refuse to boot with a default/weak signing secret —
-        # the JWT secret is the only thing preventing token forgery.
-        if self.app_env != "development" and (
-            self.secret_key in _INSECURE_SECRETS or len(self.secret_key) < 32
-        ):
-            raise ValueError(
-                "SECRET_KEY must be a strong random value (>= 32 chars) when "
-                "APP_ENV is not 'development'. Generate one with:\n"
-                '  python -c "import secrets; print(secrets.token_urlsafe(64))"'
-            )
+        # Outside local dev, refuse to boot with weak/missing secrets rather than
+        # failing lazily at request time.
+        if self.app_env != "development":
+            if self.secret_key in _INSECURE_SECRETS or len(self.secret_key) < 32:
+                raise ValueError(
+                    "SECRET_KEY must be a strong random value (>= 32 chars) when "
+                    "APP_ENV is not 'development'. Generate one with:\n"
+                    '  python -c "import secrets; print(secrets.token_urlsafe(64))"'
+                )
+            if not self.encryption_key:
+                raise ValueError(
+                    "ENCRYPTION_KEY must be set when APP_ENV is not 'development'."
+                )
+            try:
+                from cryptography.fernet import Fernet
+
+                Fernet(self.encryption_key.encode())
+            except Exception as exc:  # noqa: BLE001
+                raise ValueError(
+                    "ENCRYPTION_KEY must be a valid Fernet key. Generate one with:\n"
+                    '  python -c "from cryptography.fernet import Fernet; '
+                    'print(Fernet.generate_key().decode())"'
+                ) from exc
         return self
 
 

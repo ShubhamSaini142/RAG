@@ -3,7 +3,7 @@ the LLM answer. Citations are derived from the same chunks by the caller.
 """
 from collections.abc import AsyncIterator
 
-from app import providers
+from app.providers.base import LLMProvider
 from app.vectorstore.base import SearchHit
 
 GROUNDED_SYSTEM = (
@@ -22,8 +22,9 @@ def build_user_prompt(question: str, hits: list[SearchHit]) -> str:
     return f"Context:\n{context}\n\nQuestion: {question}"
 
 
-async def stream_answer(question: str, hits: list[SearchHit]) -> AsyncIterator[str]:
-    llm = providers.get_llm_provider()
+async def stream_answer(
+    question: str, hits: list[SearchHit], llm: LLMProvider
+) -> AsyncIterator[str]:
     user_prompt = build_user_prompt(question, hits)
     async for delta in llm.astream(GROUNDED_SYSTEM, user_prompt):
         yield delta

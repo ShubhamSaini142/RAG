@@ -39,3 +39,22 @@ class MessageRole(str, Enum):
 class FeedbackRating(str, Enum):
     up = "up"
     down = "down"
+
+
+class ProviderKind(str, Enum):
+    llm = "llm"
+    embedding = "embedding"
+
+
+class LLMProviderName(str, Enum):
+    openai = "openai"
+    anthropic = "anthropic"
+    gemini = "gemini"
+    openai_compatible = "openai_compatible"
+
+
+class EmbeddingProviderName(str, Enum):
+    # Note: Anthropic has no embeddings API — it's LLM-only.
+    openai = "openai"
+    gemini = "gemini"
+    openai_compatible = "openai_compatible"

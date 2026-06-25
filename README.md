@@ -5,12 +5,16 @@ A multi-tenant, RAG-based knowledge-base SaaS. Users upload/connect content
 embeds → stores it, then answers natural-language questions grounded in the
 content, **with citations**.
 
+> 👉 **New here? Start with [SETUP.md](SETUP.md)** — fresh machine to a running app, step by step.
+
 See [PLAN.md](PLAN.md) for the full architecture and roadmap, [docs/CHECKLIST.md](docs/CHECKLIST.md)
 for build progress, and [docs/](docs/) for per-step deep-dives + collaborator setup:
 
+- **[docs/api-reference.md](docs/api-reference.md) — full API reference (every endpoint, curl, steps)**
 - [docs/step-04-database-schema.md](docs/step-04-database-schema.md) — DB models, migrations & how to apply them
 - [docs/step-05-auth.md](docs/step-05-auth.md) — auth & multi-tenancy (JWT, roles) + git workflow
 - [docs/step-06-rag-slice.md](docs/step-06-rag-slice.md) — the RAG slice (ingest → ask), worker setup, Swagger
+- [docs/step-07-byok-providers.md](docs/step-07-byok-providers.md) — bring-your-own-key + multi-provider (per-org, encrypted)
 
 ## Stack
 
@@ -18,7 +22,7 @@ for build progress, and [docs/](docs/) for per-step deep-dives + collaborator se
 - **Vector store:** Qdrant (from day 1)
 - **Metadata DB:** Postgres
 - **Object storage:** MinIO / S3
-- **RAG:** LangChain ecosystem · OpenAI (behind a swappable provider interface)
+- **RAG:** LangChain ecosystem · **BYOK multi-provider** (OpenAI / Anthropic / Gemini / OpenAI-compatible), per-org encrypted keys
 - **Frontend:** Next.js *(not scaffolded yet)*
 
 ## Project Structure (backend)

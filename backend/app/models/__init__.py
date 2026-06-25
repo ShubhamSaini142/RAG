@@ -9,6 +9,7 @@ from app.models.conversation import Conversation, Message
 from app.models.document import Chunk, Document
 from app.models.feedback import Feedback
 from app.models.organization import Organization
+from app.models.provider_settings import ProviderSettings
 from app.models.user import Membership, User
 
 __all__ = [
@@ -21,4 +22,5 @@ __all__ = [
     "Conversation",
     "Message",
     "Feedback",
+    "ProviderSettings",
 ]

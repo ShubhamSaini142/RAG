@@ -1,12 +1,11 @@
-"""End-to-end RAG slice test WITHOUT OpenAI.
+"""End-to-end RAG slice test WITHOUT real OpenAI (BYOK-aware).
 
-Swaps the embedding + LLM providers for deterministic fakes (this is exactly
-what the provider abstraction is for), runs Celery inline (eager), and exercises
-the full pipeline against real Postgres + Qdrant + MinIO:
-  register -> upload .txt -> ingest -> /chat (retrieve + stream + cite) -> isolation.
+Swaps the (now org-aware) embedding + LLM factories for deterministic fakes,
+seeds per-org provider config in the DB, runs Celery inline (eager), and
+exercises the full pipeline against real Postgres + Qdrant + MinIO:
+  register -> require-key gate -> configure -> upload -> ingest -> /chat -> isolation.
 
 Run from backend/ (venv active):  python -m tests.test_rag
-The real OpenAI path is enabled simply by setting OPENAI_API_KEY in .env.
 """
 import math
 import re
@@ -15,14 +14,14 @@ import uuid
 from fastapi.testclient import TestClient
 
 import app.providers as providers_mod
+from app import crypto
 from app.celery_app import celery_app
 from app.config import settings
+from app.db import SessionLocal
+from app.models import ProviderSettings
 
 
-# --- Deterministic fakes -----------------------------------------------------
 class FakeEmbedder:
-    """Bag-of-words hashed into a unit vector — shared tokens => high cosine."""
-
     def _vec(self, text: str) -> list[float]:
         dim = settings.embedding_dim
         v = [0.0] * dim
@@ -40,7 +39,6 @@ class FakeEmbedder:
 
 class FakeLLM:
     async def astream(self, system: str, user: str):
-        # "[1]" appears in the prompt only when context chunks were retrieved.
         answer = (
             "Based on the provided context, the answer is here. [1]"
             if "[1]" in user
@@ -50,76 +48,81 @@ class FakeLLM:
             yield word + " "
 
 
-providers_mod.get_embedding_provider = lambda: FakeEmbedder()
-providers_mod.get_llm_provider = lambda: FakeLLM()
+# Org-aware factories now take (org_id, db); fakes ignore both.
+providers_mod.get_embedding_provider = lambda org_id, db: FakeEmbedder()
+providers_mod.get_llm_provider = lambda org_id, db: FakeLLM()
 
 celery_app.conf.task_always_eager = True
 celery_app.conf.task_eager_propagates = True
 
-from app.main import app  # noqa: E402  (import after patching providers/celery)
+from app.main import app  # noqa: E402
 
 client = TestClient(app)
 
 
-def _email() -> str:
-    return f"rag-{uuid.uuid4().hex[:10]}@example.com"
-
-
-def _register() -> str:
-    r = client.post("/auth/register", json={"email": _email(), "password": "password123"})
+def _register() -> tuple[str, str]:
+    r = client.post("/auth/register", json={"email": f"rag-{uuid.uuid4().hex[:10]}@x.com", "password": "password123"})
     assert r.status_code == 201, r.text
-    return r.json()["access_token"]
+    return r.json()["access_token"], r.json()["org_id"]
 
 
 def _auth(tok: str) -> dict:
     return {"Authorization": f"Bearer {tok}"}
 
 
-def test_rag_slice() -> None:
-    alice = _register()
+def _seed_providers(org_id: str) -> None:
+    """Seed per-org provider config (gating + embedding_dim read these)."""
+    db = SessionLocal()
+    try:
+        oid = uuid.UUID(org_id)
+        db.add(ProviderSettings(org_id=oid, kind="embedding", provider="openai",
+                                model="fake-embed", api_key_encrypted=crypto.encrypt("sk-test"),
+                                embedding_dim=settings.embedding_dim))
+        db.add(ProviderSettings(org_id=oid, kind="llm", provider="openai",
+                                model="fake-llm", api_key_encrypted=crypto.encrypt("sk-test")))
+        db.commit()
+    finally:
+        db.close()
 
-    # --- Upload a .txt document ---
+
+def test_rag_slice() -> None:
+    alice, alice_org = _register()
     content = (
         b"The Eiffel Tower is located in Paris, France and was completed in 1889. "
         b"The Great Wall of China is an ancient fortification in northern China."
     )
-    r = client.post(
-        "/documents",
-        files={"file": ("facts.txt", content, "text/plain")},
-        headers=_auth(alice),
-    )
+    files = {"file": ("facts.txt", content, "text/plain")}
+
+    # --- Require-key: uploading before configuring a provider is rejected ---
+    assert client.post("/documents", files=files, headers=_auth(alice)).status_code == 409
+
+    # --- Configure providers (seeded directly) -> upload now works ---
+    _seed_providers(alice_org)
+    r = client.post("/documents", files=files, headers=_auth(alice))
     assert r.status_code == 201, r.text
     doc_id = r.json()["id"]
 
-    # --- Ingestion ran inline (eager) -> document is ready ---
+    # --- Ingestion ran inline (eager) into the org's own collection -> ready ---
     r = client.get(f"/documents/{doc_id}", headers=_auth(alice))
-    assert r.status_code == 200, r.text
-    assert r.json()["status"] == "ready", f"ingestion did not succeed: {r.json()}"
+    assert r.status_code == 200 and r.json()["status"] == "ready", r.text
 
     # --- Ask a question -> streamed answer with citations ---
-    r = client.post(
-        "/chat", json={"question": "Where is the Eiffel Tower located?"}, headers=_auth(alice)
-    )
+    r = client.post("/chat", json={"question": "Where is the Eiffel Tower located?"}, headers=_auth(alice))
     assert r.status_code == 200, r.text
-    body = r.text
-    assert "event: citations" in body, body
-    assert "event: token" in body, body
-    assert "event: done" in body, body
-    assert doc_id in body, "citation should reference the uploaded document"
+    assert "event: citations" in r.text and "event: token" in r.text and "event: done" in r.text
+    assert doc_id in r.text
 
-    # --- Isolation: Bob has no documents -> no citations, no grounded answer ---
-    bob = _register()
-    r = client.post(
-        "/chat", json={"question": "Where is the Eiffel Tower located?"}, headers=_auth(bob)
-    )
-    assert r.status_code == 200, r.text
-    assert "data: []" in r.text, "another org's docs must NOT be retrieved"
+    # --- Isolation: Bob's own org/collection has no docs -> no citations ---
+    bob, bob_org = _register()
+    _seed_providers(bob_org)
+    r = client.post("/chat", json={"question": "Where is the Eiffel Tower located?"}, headers=_auth(bob))
+    assert r.status_code == 200 and "data: []" in r.text, "another org's docs must NOT be retrieved"
 
     # --- Delete removes the document ---
     assert client.delete(f"/documents/{doc_id}", headers=_auth(alice)).status_code == 204
     assert client.get(f"/documents/{doc_id}", headers=_auth(alice)).status_code == 404
 
-    print("OK - RAG slice: upload -> ingest -> retrieve -> cited answer -> isolation -> delete")
+    print("OK - RAG slice (BYOK): gate -> configure -> upload -> ingest -> cited answer -> isolation -> delete")
 
 
 if __name__ == "__main__":

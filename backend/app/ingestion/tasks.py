@@ -9,6 +9,7 @@ duplicate. run_ingestion() is a plain function so it can be called synchronously
 in tests; the Celery task is a thin wrapper.
 """
 import asyncio
+import logging
 import uuid
 
 from app import providers, storage
@@ -19,7 +20,9 @@ from app.ingestion.extractors import extract
 from app.models import Chunk, Document
 from app.models.enums import DocumentStatus
 from app.vectorstore.base import Chunk as VectorChunk
-from app.vectorstore.qdrant_store import QdrantStore
+from app.vectorstore.qdrant_store import QdrantStore, org_collection
+
+logger = logging.getLogger("app.ingestion")
 
 # Fixed namespace -> point id is deterministic per (document, chunk_index), so a
 # re-run overwrites the same points instead of creating duplicates.
@@ -36,9 +39,12 @@ def run_ingestion(document_id: str) -> None:
         doc.status = DocumentStatus.processing.value
         db.commit()
 
-        store = QdrantStore()
+        store = QdrantStore(org_collection(doc.org_id))
         try:
-            store.ensure_collection()
+            # Resolve this org's embedding provider (BYOK). Raises if unconfigured.
+            embedder = providers.get_embedding_provider(doc.org_id, db)
+            dim = providers.get_embedding_dim(doc.org_id, db)
+            store.ensure_collection(dim)
             # Self-healing: drop anything a previous attempt left behind.
             store.delete_document(str(doc.org_id), str(doc.id))
             db.query(Chunk).filter(Chunk.document_id == doc.id).delete()
@@ -55,7 +61,6 @@ def run_ingestion(document_id: str) -> None:
                 db.commit()
                 return
 
-            embedder = providers.get_embedding_provider()
             # Celery tasks are sync; drive the async embedder in a fresh loop.
             vectors = asyncio.run(embedder.embed_documents([p["content"] for p in pieces]))
             if len(vectors) != len(pieces):
@@ -104,10 +109,13 @@ def run_ingestion(document_id: str) -> None:
                 store.delete_document(str(doc.org_id), str(doc.id))
             except Exception:  # noqa: BLE001
                 pass
+            # Full detail goes to server logs only; the API-visible error_msg is a
+            # sanitized category (provider exceptions can echo the BYOK key/base_url).
+            logger.exception("ingestion failed for document %s", document_id)
             failed = db.get(Document, doc_uuid)
             if failed is not None:
                 failed.status = DocumentStatus.failed.value
-                failed.error_msg = str(exc)[:2000]
+                failed.error_msg = f"Ingestion failed ({type(exc).__name__}). See server logs."
                 db.commit()
             raise
     finally:

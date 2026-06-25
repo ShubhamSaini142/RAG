@@ -2,7 +2,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import auth, chat, documents, health, orgs
+from app.api import auth, chat, documents, health, orgs, settings as settings_api
 
 DESCRIPTION = """
 Multi-tenant **Retrieval-Augmented Generation** knowledge base.
@@ -13,10 +13,14 @@ Upload documents, and ask natural-language questions that are answered by an LLM
 ### Getting started
 1. **`POST /auth/register`** — creates your user + organization, returns an `access_token`.
 2. Click **Authorize** (top right) and paste the token — it persists across calls.
-3. **`POST /documents`** — upload a `.txt`/`.md` file (it's indexed in the background).
-4. **`POST /chat`** — ask a question; the answer streams back (SSE) with citations.
+3. **`PUT /settings/providers/embedding`** and **`/llm`** — configure your *own* provider
+   + API key (OpenAI, Anthropic, Gemini, or any OpenAI-compatible endpoint). Keys are
+   stored encrypted; nothing runs until you set them.
+4. **`POST /documents`** — upload a `.txt`/`.md` file (indexed in the background).
+5. **`POST /chat`** — ask a question; the answer streams back (SSE) with citations.
 
-All data is scoped to your organization — one org can never see another's.
+All data — and your API keys — are scoped to your organization. One org can never see
+another's documents, vectors, or keys.
 """
 
 TAGS_METADATA = [
@@ -32,13 +36,18 @@ TAGS_METADATA = [
         "description": "Ask questions; get a streamed (SSE), cited answer grounded in "
         "your documents.",
     },
+    {
+        "name": "settings",
+        "description": "Per-org AI provider configuration (bring-your-own-key): set the "
+        "LLM and embedding provider + key.",
+    },
     {"name": "health", "description": "Liveness/readiness — checks Postgres and Qdrant."},
 ]
 
 app = FastAPI(
     title="RAG Knowledge Base API",
     description=DESCRIPTION,
-    version="0.6.0",
+    version="0.7.0",
     openapi_tags=TAGS_METADATA,
     contact={"name": "RAG Knowledge Base"},
     license_info={"name": "Proprietary"},
@@ -63,6 +72,7 @@ app.include_router(auth.router)
 app.include_router(orgs.router)
 app.include_router(documents.router)
 app.include_router(chat.router)
+app.include_router(settings_api.router)
 
 # Future routers (added in later milestones):
 # app.include_router(collections.router)

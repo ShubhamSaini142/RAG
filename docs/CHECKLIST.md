@@ -65,7 +65,7 @@ See [PLAN.md](../PLAN.md) for the full architecture and [README.md](../README.md
 - [X] Verify org isolation: end-to-end test passes (`tests/test_auth.py`)
 - [X] Adversarial security review + fixes: secret-key startup guard, invite role-ceiling, input limits, login-timing
 
-## Step 6 — First vertical slice (ingest → ask)  ◀ YOU ARE HERE
+## Step 6 — First vertical slice (ingest → ask) ✅
 
 > 📄 Full explanation + collaborator setup (worker, OpenAI key) + git workflow: [step-06-rag-slice.md](step-06-rag-slice.md)
 
@@ -80,6 +80,19 @@ See [PLAN.md](../PLAN.md) for the full architecture and [README.md](../README.md
 - [X] Polished Swagger/OpenAPI docs at `/docs` (tags, summaries, persistent Authorize)
 - [X] Fixed first-request 130s hang (use `127.0.0.1`, not `localhost`)
 - [ ] Live OpenAI run (add `OPENAI_API_KEY` to `.env`) + run a Celery worker
+
+## Step 7 — BYOK + multi-provider (per-org)  ◀ YOU ARE HERE
+
+> 📄 Full explanation + collaborator setup + git workflow: [step-07-byok-providers.md](step-07-byok-providers.md)
+
+- [X] Fernet encryption util + `ENCRYPTION_KEY` (`app/crypto.py`)
+- [X] `provider_settings` model + migration (`c6b305320af5`)
+- [X] Multi-provider registry/adapters (OpenAI, Anthropic, Gemini, OpenAI-compatible)
+- [X] Org-aware factories (`get_llm_provider`/`get_embedding_provider`); require-key gating
+- [X] Per-org Qdrant collections (variable embedding dimensions)
+- [X] Settings API (GET/PUT, owner/admin, masked keys, embedding dim auto-detect)
+- [X] Tests: `tests/test_providers.py` (encryption/masking) + updated `tests/test_rag.py`
+- [ ] Adversarial BYOK security review fixes (in progress)
 
 ---
 

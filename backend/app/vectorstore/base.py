@@ -26,8 +26,8 @@ class SearchHit:
 
 class VectorStore(ABC):
     @abstractmethod
-    def ensure_collection(self) -> None:
-        """Create the collection + payload indexes if absent."""
+    def ensure_collection(self, dim: int) -> None:
+        """Create the collection (with vector size `dim`) + payload indexes if absent."""
 
     @abstractmethod
     def upsert(self, chunks: list[Chunk]) -> None:
