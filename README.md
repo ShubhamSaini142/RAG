@@ -15,6 +15,8 @@ for build progress, and [docs/](docs/) for per-step deep-dives + collaborator se
 - [docs/step-05-auth.md](docs/step-05-auth.md) — auth & multi-tenancy (JWT, roles) + git workflow
 - [docs/step-06-rag-slice.md](docs/step-06-rag-slice.md) — the RAG slice (ingest → ask), worker setup, Swagger
 - [docs/step-07-byok-providers.md](docs/step-07-byok-providers.md) — bring-your-own-key + multi-provider (per-org, encrypted)
+- [docs/step-08-frontend.md](docs/step-08-frontend.md) — Next.js UI (design system, auth, upload, chat) + collaborator setup
+- [docs/step-09-analytics.md](docs/step-09-analytics.md) — usage analytics + token tracking (per-user & org-wide)
 
 ## Stack
 
@@ -23,7 +25,7 @@ for build progress, and [docs/](docs/) for per-step deep-dives + collaborator se
 - **Metadata DB:** Postgres
 - **Object storage:** MinIO / S3
 - **RAG:** LangChain ecosystem · **BYOK multi-provider** (OpenAI / Anthropic / Gemini / OpenAI-compatible), per-org encrypted keys
-- **Frontend:** Next.js *(not scaffolded yet)*
+- **Frontend:** Next.js (App Router, TypeScript) · Tailwind v4 design system · Recharts
 
 ## Project Structure (backend)
 
@@ -88,10 +90,26 @@ uvicorn app.main:app --reload
 Health check: open http://localhost:8000/health (Postgres + Qdrant should be `ok`).
 Qdrant dashboard: http://localhost:6333/dashboard · MinIO console: http://localhost:9001
 
+## Getting Started (frontend)
+
+With the backend running (and a worker), start the UI:
+
+```powershell
+cd frontend
+copy .env.example .env.local        # points at http://localhost:8000
+npm install
+npm run dev                         # http://localhost:3000
+```
+
+Open http://localhost:3000 → register → configure your provider keys in **Settings** →
+upload a document → **Chat**. See [docs/step-08-frontend.md](docs/step-08-frontend.md).
+
 ## Status
 
-Scaffold in place. Next: `docker-compose` for Postgres + Qdrant + Redis + MinIO,
-then DB models/migrations, auth & multi-tenancy, and the first ingest→ask slice.
+Backend complete through **BYOK multi-provider** + **usage analytics**; a **Next.js
+frontend** covers auth, provider settings, document upload, streamed cited chat, and the
+analytics dashboard. Next: more source types (PDF/DOCX/Excel/images/websites), hybrid
+search, conversation memory.
 
 ## License
 

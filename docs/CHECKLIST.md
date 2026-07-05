@@ -81,18 +81,43 @@ See [PLAN.md](../PLAN.md) for the full architecture and [README.md](../README.md
 - [X] Fixed first-request 130s hang (use `127.0.0.1`, not `localhost`)
 - [ ] Live OpenAI run (add `OPENAI_API_KEY` to `.env`) + run a Celery worker
 
-## Step 7 — BYOK + multi-provider (per-org)  ◀ YOU ARE HERE
+## Step 7 — BYOK + multi-provider (per-org) ✅
 
 > 📄 Full explanation + collaborator setup + git workflow: [step-07-byok-providers.md](step-07-byok-providers.md)
 
 - [X] Fernet encryption util + `ENCRYPTION_KEY` (`app/crypto.py`)
-- [X] `provider_settings` model + migration (`c6b305320af5`)
+- [X] `provider_settings` model + migration (`c6b305320af5`, `7f1210931f08`)
 - [X] Multi-provider registry/adapters (OpenAI, Anthropic, Gemini, OpenAI-compatible)
 - [X] Org-aware factories (`get_llm_provider`/`get_embedding_provider`); require-key gating
 - [X] Per-org Qdrant collections (variable embedding dimensions)
 - [X] Settings API (GET/PUT, owner/admin, masked keys, embedding dim auto-detect)
 - [X] Tests: `tests/test_providers.py` (encryption/masking) + updated `tests/test_rag.py`
-- [ ] Adversarial BYOK security review fixes (in progress)
+- [X] Adversarial BYOK security review fixes (7 findings applied)
+
+## Step 8 — Frontend (Next.js UI) ✅
+
+> 📄 Full explanation + collaborator setup + git workflow: [step-08-frontend.md](step-08-frontend.md)
+
+- [X] Next.js (App Router, TS, Tailwind v4) scaffolded in `frontend/`
+- [X] Design system: semantic tokens, light/dark theme (no-flash), UI primitives
+- [X] Typed API client + JWT auth context (401 → auto sign-out)
+- [X] Auth pages (register / login) + protected route guard
+- [X] App shell: sidebar nav, topbar, org/role, theme toggle, sign-out
+- [X] Settings (BYOK): embedding + LLM forms, masked keys, 409 handling
+- [X] Documents: drag-drop upload, live status polling, delete
+- [X] Chat: SSE streaming answer, citations, follow-ups, stop
+- [X] Verified: `tsc` clean, production build passes, all routes serve 200
+
+## Step 9 — Usage analytics + token tracking ✅
+
+> 📄 Full explanation + collaborator setup + git workflow: [step-09-analytics.md](step-09-analytics.md)
+
+- [X] `usage_events` model + migration (`a1b2c3d4e5f6`)
+- [X] Token capture from streamed LLM responses (`usage_metadata`, per provider)
+- [X] `GET /analytics/me` (own) and `GET /analytics/org` (owner/admin, per-user breakdown)
+- [X] Frontend analytics page: stat tiles + charts (Recharts), CVD-validated palette
+- [X] Admin scope toggle (org-wide vs. just me)
+- [X] Test: `tests/test_analytics.py` (recorded, aggregated, scoped, isolated)
 
 ---
 
@@ -103,8 +128,8 @@ See [PLAN.md](../PLAN.md) for the full architecture and [README.md](../README.md
 - [ ] Conversation memory (follow-up questions)
 - [ ] Thumbs up/down feedback
 - [ ] Collections management (list, delete, re-index)
-- [ ] Frontend (Next.js): auth, upload + status, chat with citations
-- [ ] Usage logging + error handling polish
+- [X] Frontend (Next.js): auth, upload + status, chat with citations
+- [ ] Error handling polish
 
 ## Later (deferred — boundaries already in place)
 
@@ -114,4 +139,4 @@ See [PLAN.md](../PLAN.md) for the full architecture and [README.md](../README.md
 - [ ] Billing / plans (Stripe)
 - [ ] SSO / SCIM
 - [ ] Connectors (Drive, Slack, Notion)
-- [ ] Analytics dashboard
+- [X] Analytics dashboard (token usage, per-user/org — Step 9)

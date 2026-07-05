@@ -18,6 +18,7 @@ __all__ = [
     "get_llm_provider",
     "get_embedding_provider",
     "get_embedding_dim",
+    "get_provider_meta",
     "has_provider",
 ]
 
@@ -62,6 +63,19 @@ def get_embedding_provider(org_id: uuid.UUID, db: Session) -> EmbeddingProvider:
 def get_embedding_dim(org_id: uuid.UUID, db: Session) -> int:
     cfg = _load(db, org_id, "embedding")
     return cfg.embedding_dim or 0
+
+
+def get_provider_meta(org_id: uuid.UUID, db: Session, kind: str) -> tuple[str, str] | None:
+    """Return (provider, model) for the org's configured provider of `kind`,
+    or None if unconfigured. Used for usage/analytics labelling."""
+    from app.models import ProviderSettings
+
+    cfg = (
+        db.query(ProviderSettings)
+        .filter(ProviderSettings.org_id == org_id, ProviderSettings.kind == kind)
+        .first()
+    )
+    return (cfg.provider, cfg.model) if cfg is not None else None
 
 
 def has_provider(db: Session, org_id: uuid.UUID, kind: str) -> bool:

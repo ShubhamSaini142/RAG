@@ -10,6 +10,7 @@ from app.models.document import Chunk, Document
 from app.models.feedback import Feedback
 from app.models.organization import Organization
 from app.models.provider_settings import ProviderSettings
+from app.models.usage import UsageEvent
 from app.models.user import Membership, User
 
 __all__ = [
@@ -23,4 +24,5 @@ __all__ = [
     "Message",
     "Feedback",
     "ProviderSettings",
+    "UsageEvent",
 ]

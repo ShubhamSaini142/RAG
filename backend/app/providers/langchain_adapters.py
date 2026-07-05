@@ -11,12 +11,24 @@ from app.providers.base import EmbeddingProvider, LLMProvider
 class LangChainLLMProvider(LLMProvider):
     def __init__(self, chat_model) -> None:
         self._llm = chat_model
+        # Populated after astream completes with the provider's token usage
+        # ({"input_tokens", "output_tokens", "total_tokens"}) when available.
+        self.last_usage: dict | None = None
 
     async def astream(self, system: str, user: str) -> AsyncIterator[str]:
-        async for chunk in self._llm.astream([("system", system), ("human", user)]):
-            text = chunk.content
-            if text:
-                yield text if isinstance(text, str) else str(text)
+        # Accumulate chunks so we can read usage_metadata off the aggregate,
+        # which is how LangChain surfaces token counts for streamed responses.
+        full = None
+        self.last_usage = None
+        try:
+            async for chunk in self._llm.astream([("system", system), ("human", user)]):
+                full = chunk if full is None else full + chunk
+                text = chunk.content
+                if text:
+                    yield text if isinstance(text, str) else str(text)
+        finally:
+            if full is not None:
+                self.last_usage = getattr(full, "usage_metadata", None)
 
 
 class LangChainEmbeddingProvider(EmbeddingProvider):

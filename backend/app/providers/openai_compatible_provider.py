@@ -11,7 +11,13 @@ def build_llm(model: str, api_key: str, base_url: str | None = None) -> LLMProvi
     from langchain_openai import ChatOpenAI
 
     return LangChainLLMProvider(
-        ChatOpenAI(model=model, api_key=api_key or "not-needed", base_url=base_url, temperature=0)
+        ChatOpenAI(
+            model=model,
+            api_key=api_key or "not-needed",
+            base_url=base_url,
+            temperature=0,
+            stream_usage=True,  # honored if the server reports usage (some don't)
+        )
     )
 
 

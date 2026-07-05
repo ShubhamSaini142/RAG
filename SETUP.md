@@ -188,15 +188,37 @@ pipeline against real Postgres/Qdrant/MinIO without calling OpenAI/Anthropic/Gem
 
 ---
 
+## 10. Run the web UI (frontend)
+
+With the backend + worker running, start the Next.js app in a new terminal:
+
+```powershell
+cd frontend
+copy .env.example .env.local          # already points at http://localhost:8000
+npm install
+npm run dev                            # http://localhost:3000
+```
+
+Open **http://localhost:3000** → **Register** → you'll land on **Settings** to add your
+own embedding + chat provider keys → **Documents** (upload a `.txt`/`.md`) → **Chat**
+(streamed, cited answers) → **Analytics** (token usage; owners/admins see the whole org).
+
+> If the API isn't on `localhost:8000`, set `NEXT_PUBLIC_API_URL` in `frontend/.env.local`.
+> Full detail: [docs/step-08-frontend.md](docs/step-08-frontend.md) ·
+> [docs/step-09-analytics.md](docs/step-09-analytics.md).
+
+---
+
 ## Daily commands
 
 ```powershell
 docker compose up -d / stop / down          # start / pause / remove infra (data kept)
 docker compose down -v                       # ⚠️ also deletes all data volumes
-uvicorn app.main:app --reload                # API
-celery -A app.celery_app worker --pool=solo  # worker
-alembic upgrade head                          # apply new migrations
+uvicorn app.main:app --reload                # API (from backend/)
+celery -A app.celery_app worker --pool=solo  # worker (from backend/)
+alembic upgrade head                          # apply new migrations (from backend/)
 alembic revision --autogenerate -m "msg"      # create a migration after model changes
+npm run dev                                    # frontend (from frontend/)
 ```
 
 ## Troubleshooting
@@ -216,22 +238,29 @@ alembic revision --autogenerate -m "msg"      # create a migration after model c
 ```
 RAG/
 ├── README.md · SETUP.md (this) · PLAN.md
-├── docs/                      api-reference.md, CHECKLIST.md, step-04…07 deep-dives
-└── backend/
-    ├── docker-compose.yml · .env.example · requirements.txt · alembic/
-    └── app/
-        ├── main.py · config.py · db.py · celery_app.py · crypto.py · storage.py
-        ├── api/        health, auth, orgs, documents, chat, settings
-        ├── auth/       JWT, deps, role checks
-        ├── models/     org, user, collection, document, chunk, conversation, feedback, provider_settings
-        ├── providers/  base, registry (redirector), openai/anthropic/gemini/openai_compatible, factories
-        ├── ingestion/  extractors, chunking, Celery tasks
-        ├── rag/        retriever, pipeline
-        └── vectorstore/ base, qdrant_store (per-org collections)
+├── docs/                      api-reference.md, CHECKLIST.md, step-04…09 deep-dives
+├── backend/
+│   ├── docker-compose.yml · .env.example · requirements.txt · alembic/
+│   └── app/
+│       ├── main.py · config.py · db.py · celery_app.py · crypto.py · storage.py
+│       ├── api/        health, auth, orgs, documents, chat, settings, analytics
+│       ├── auth/       JWT, deps, role checks
+│       ├── models/     org, user, collection, document, chunk, conversation, feedback, provider_settings, usage
+│       ├── providers/  base, registry (redirector), openai/anthropic/gemini/openai_compatible, factories
+│       ├── analytics/  usage recording + aggregation
+│       ├── ingestion/  extractors, chunking, Celery tasks
+│       ├── rag/        retriever, pipeline
+│       └── vectorstore/ base, qdrant_store (per-org collections)
+└── frontend/                  Next.js (App Router, TS, Tailwind v4)
+    └── src/
+        ├── app/       login, register, (app)/{chat,documents,settings,analytics}
+        ├── components/ brand, app-shell, ui/* (design system)
+        └── lib/       api, types, auth, theme
 ```
 
 ## Status
 
-Steps 0–7 complete: machine setup → infra → DB schema → auth & multi-tenancy →
-RAG slice (ingest → cited answer) → async serving path → BYOK multi-provider.
-Next candidates: more file types (PDF/Excel/images/websites), hybrid search, frontend.
+Steps 0–9 complete: machine setup → infra → DB schema → auth & multi-tenancy →
+RAG slice (ingest → cited answer) → async serving path → BYOK multi-provider →
+**Next.js frontend** → **usage analytics + token tracking**.
+Next candidates: more file types (PDF/Excel/images/websites), hybrid search, conversation memory.

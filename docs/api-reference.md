@@ -18,7 +18,8 @@ shape, a copy-paste `curl`, an example response, and the steps to use it.
 6. [Settings — AI providers (BYOK)](#settings--ai-providers-byok)
 7. [Documents](#documents)
 8. [Chat](#chat)
-9. [Status codes](#status-codes)
+9. [Analytics](#analytics)
+10. [Status codes](#status-codes)
 
 ---
 
@@ -294,6 +295,46 @@ data: {"conversation_id": "c0ff..."}
 **Steps:** read `citations` for sources, concatenate `token` texts for the answer, and
 keep `conversation_id` from `done` to continue the thread. With no relevant context the
 `citations` array is empty and the model answers "I don't know".
+
+---
+
+## Analytics
+
+Usage analytics aggregated from token accounting recorded on every chat answer.
+
+### `GET /analytics/me` — your own usage
+```bash
+curl http://localhost:8000/analytics/me -H "Authorization: Bearer $TOKEN"
+```
+```json
+{
+  "scope": "me",
+  "totals": { "input_tokens": 1240, "output_tokens": 860, "total_tokens": 2100,
+              "requests": 42, "documents": 7, "conversations": 12 },
+  "daily":  [ { "date": "2026-07-05", "input_tokens": 120, "output_tokens": 80,
+                "total_tokens": 200, "requests": 4 } ],
+  "by_model": [ { "provider": "openai", "model": "gpt-4o-mini",
+                  "total_tokens": 2100, "requests": 42 } ]
+}
+```
+`daily` covers the trailing 30 days.
+
+### `GET /analytics/org` — organization-wide usage
+**Role:** `owner`/`admin`. Same shape as `/me` but org-wide, plus a `by_user` breakdown.
+```bash
+curl http://localhost:8000/analytics/org -H "Authorization: Bearer $TOKEN"
+```
+```json
+{
+  "scope": "org",
+  "totals": { "...": "..." },
+  "daily": [],
+  "by_model": [],
+  "by_user": [ { "user_id": "a1b2…", "email": "you@example.com", "name": "You",
+                 "total_tokens": 2100, "requests": 42 } ]
+}
+```
+`403` if your role is below `admin`.
 
 ---
 

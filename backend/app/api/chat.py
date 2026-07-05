@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
 from app import providers
+from app.analytics.service import record_chat_usage
 from app.auth.deps import CurrentContext, get_current_context
 from app.db import SessionLocal
 from app.models import Collection, Conversation, Message
@@ -98,12 +99,14 @@ def _validate_collection(collection_id: uuid.UUID, org_id: uuid.UUID) -> None:
 
 
 def _resolve_providers(org_id: uuid.UUID):
-    """Load this org's embedding + LLM providers (BYOK). Raises ProviderNotConfigured."""
+    """Load this org's embedding + LLM providers (BYOK), plus the LLM's
+    (provider, model) for usage labelling. Raises ProviderNotConfigured."""
     db = SessionLocal()
     try:
         embedder = providers.get_embedding_provider(org_id, db)
         llm = providers.get_llm_provider(org_id, db)
-        return embedder, llm
+        llm_meta = providers.get_provider_meta(org_id, db, "llm")
+        return embedder, llm, llm_meta
     finally:
         db.close()
 
@@ -128,7 +131,7 @@ async def chat(
 
     # Resolve the org's BYOK providers (require-key). 409 if not configured yet.
     try:
-        embedder, llm = await run_in_threadpool(_resolve_providers, org_id)
+        embedder, llm, llm_meta = await run_in_threadpool(_resolve_providers, org_id)
     except ProviderNotConfigured as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail=f"{exc}. Configure it in Settings."
@@ -182,6 +185,18 @@ async def chat(
                         conv_id,
                         "".join(parts),
                         [c["chunk_id"] for c in citations],
+                    )
+                except Exception:  # noqa: BLE001
+                    pass
+                # Record token usage for analytics (best-effort, non-blocking).
+                try:
+                    await run_in_threadpool(
+                        record_chat_usage,
+                        org_id,
+                        user_id,
+                        conv_id,
+                        llm_meta,
+                        getattr(llm, "last_usage", None),
                     )
                 except Exception:  # noqa: BLE001
                     pass

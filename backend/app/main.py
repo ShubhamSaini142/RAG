@@ -2,7 +2,15 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import auth, chat, documents, health, orgs, settings as settings_api
+from app.api import (
+    analytics,
+    auth,
+    chat,
+    documents,
+    health,
+    orgs,
+    settings as settings_api,
+)
 
 DESCRIPTION = """
 Multi-tenant **Retrieval-Augmented Generation** knowledge base.
@@ -41,6 +49,11 @@ TAGS_METADATA = [
         "description": "Per-org AI provider configuration (bring-your-own-key): set the "
         "LLM and embedding provider + key.",
     },
+    {
+        "name": "analytics",
+        "description": "Usage analytics: token usage and activity for the current user, "
+        "or org-wide (owner/admin).",
+    },
     {"name": "health", "description": "Liveness/readiness — checks Postgres and Qdrant."},
 ]
 
@@ -73,6 +86,7 @@ app.include_router(orgs.router)
 app.include_router(documents.router)
 app.include_router(chat.router)
 app.include_router(settings_api.router)
+app.include_router(analytics.router)
 
 # Future routers (added in later milestones):
 # app.include_router(collections.router)
