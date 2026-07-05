@@ -1,4 +1,8 @@
 """FastAPI application entrypoint."""
+import logging
+import threading
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -6,11 +10,31 @@ from app.api import (
     analytics,
     auth,
     chat,
+    conversations,
     documents,
     health,
     orgs,
     settings as settings_api,
 )
+
+logger = logging.getLogger("app.main")
+
+
+def _warm_provider_imports() -> None:
+    """Import the (heavy) LangChain provider packages once, in the background, so
+    the first time a user saves a provider key the request isn't blocked on a
+    multi-second cold import. Best-effort; a missing/optional package is ignored."""
+    for module in ("langchain_openai", "langchain_anthropic", "langchain_google_genai"):
+        try:
+            __import__(module)
+        except Exception:  # noqa: BLE001 - warming is optional
+            logger.debug("provider warm import skipped: %s", module)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    threading.Thread(target=_warm_provider_imports, name="warm-providers", daemon=True).start()
+    yield
 
 DESCRIPTION = """
 Multi-tenant **Retrieval-Augmented Generation** knowledge base.
@@ -60,7 +84,8 @@ TAGS_METADATA = [
 app = FastAPI(
     title="RAG Knowledge Base API",
     description=DESCRIPTION,
-    version="0.7.0",
+    version="0.8.0",
+    lifespan=lifespan,
     openapi_tags=TAGS_METADATA,
     contact={"name": "RAG Knowledge Base"},
     license_info={"name": "Proprietary"},
@@ -85,6 +110,7 @@ app.include_router(auth.router)
 app.include_router(orgs.router)
 app.include_router(documents.router)
 app.include_router(chat.router)
+app.include_router(conversations.router)
 app.include_router(settings_api.router)
 app.include_router(analytics.router)
 

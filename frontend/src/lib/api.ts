@@ -5,6 +5,8 @@ import type {
   Analytics,
   AuthResponse,
   Citation,
+  ConversationDetail,
+  ConversationSummary,
   Document,
   Me,
   Org,
@@ -162,6 +164,13 @@ export const api = {
   getMyAnalytics: () => request<Analytics>("/analytics/me"),
 
   getOrgAnalytics: () => request<Analytics>("/analytics/org"),
+
+  listConversations: () => request<ConversationSummary[]>("/conversations"),
+
+  getConversation: (id: string) => request<ConversationDetail>(`/conversations/${id}`),
+
+  deleteConversation: (id: string) =>
+    request<void>(`/conversations/${id}`, { method: "DELETE" }),
 };
 
 /* ---------- chat (SSE streaming) ---------- */

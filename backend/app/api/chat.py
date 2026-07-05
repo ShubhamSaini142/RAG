@@ -17,7 +17,7 @@ from app import providers
 from app.analytics.service import record_chat_usage
 from app.auth.deps import CurrentContext, get_current_context
 from app.db import SessionLocal
-from app.models import Collection, Conversation, Message
+from app.models import Collection, Conversation, Document, Message
 from app.models.enums import MessageRole
 from app.providers import ProviderNotConfigured
 from app.rag.pipeline import stream_answer
@@ -98,6 +98,29 @@ def _validate_collection(collection_id: uuid.UUID, org_id: uuid.UUID) -> None:
         db.close()
 
 
+def _document_names(org_id: uuid.UUID, document_ids: list[str]) -> dict[str, str | None]:
+    """Map document_id (str) -> filename for the given hits, scoped to the org, so
+    citations can show a readable source name instead of a raw id."""
+    ids: list[uuid.UUID] = []
+    for d in set(document_ids):
+        try:
+            ids.append(uuid.UUID(d))
+        except (ValueError, TypeError):
+            continue
+    if not ids:
+        return {}
+    db = SessionLocal()
+    try:
+        rows = (
+            db.query(Document.id, Document.filename)
+            .filter(Document.org_id == org_id, Document.id.in_(ids))
+            .all()
+        )
+        return {str(doc_id): filename for doc_id, filename in rows}
+    finally:
+        db.close()
+
+
 def _resolve_providers(org_id: uuid.UUID):
     """Load this org's embedding + LLM providers (BYOK), plus the LLM's
     (provider, model) for usage labelling. Raises ProviderNotConfigured."""
@@ -150,11 +173,15 @@ async def chat(
         top_k=body.top_k,
         collection_id=body.collection_id,
     )
+    doc_names = await run_in_threadpool(
+        _document_names, org_id, [h.document_id for h in hits]
+    )
     citations = [
         {
             "n": i + 1,
             "chunk_id": h.chunk_id,
             "document_id": h.document_id,
+            "document": doc_names.get(h.document_id),
             "snippet": h.content[:300],
             "score": h.score,
         }

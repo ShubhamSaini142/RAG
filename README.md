@@ -5,7 +5,7 @@ A multi-tenant, RAG-based knowledge-base SaaS. Users upload/connect content
 embeds → stores it, then answers natural-language questions grounded in the
 content, **with citations**.
 
-> 👉 **New here? Start with [SETUP.md](SETUP.md)** — fresh machine to a running app, step by step.
+> 👉 **New here? Start with [FINAL-SETUP.md](FINAL-SETUP.md)** — exact versions + every command to install and run the whole app (backend + worker + frontend). For deeper per-feature detail see [SETUP.md](SETUP.md).
 
 See [PLAN.md](PLAN.md) for the full architecture and roadmap, [docs/CHECKLIST.md](docs/CHECKLIST.md)
 for build progress, and [docs/](docs/) for per-step deep-dives + collaborator setup:

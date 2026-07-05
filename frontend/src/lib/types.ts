@@ -59,8 +59,27 @@ export interface Citation {
   n: number;
   chunk_id: string;
   document_id: string;
+  document?: string | null;
   snippet: string;
-  score: number;
+  score?: number;
+}
+
+export interface ConversationSummary {
+  id: string;
+  title: string | null;
+  created_at: string;
+}
+
+export interface HistoryMessage {
+  role: "user" | "assistant";
+  content: string;
+  citations: Citation[];
+}
+
+export interface ConversationDetail {
+  id: string;
+  title: string | null;
+  messages: HistoryMessage[];
 }
 
 /* ---- analytics ---- */
